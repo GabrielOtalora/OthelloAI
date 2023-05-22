@@ -1,0 +1,1173 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=0, shrink-to-fit=no">
+    <meta name="mobile-web-app-capable" content='yes'>
+    <meta charset="UTF-8">
+    <meta http-equiv="Expires" content="0">
+    <meta http-equiv="Last-Modified" content="0">
+    <meta http-equiv="Cache-Control" content="no-cache, mustrevalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <title>Konekti Video</title>
+    <script type='text/javascript' src='https://jgomezpe.github.io/konekti/src/konekti.js'></script>;
+    <script>src = "../agentes/sergio.js"</script>
+</head>
+
+<body>
+
+    <script>
+
+        Konekti.uses('header', 'navbar', 'canvas')
+
+        class Agent {
+            constructor() { }
+
+            init(color, board, time = 20000) {
+                this.color = color
+                this.time = time
+                this.size = board.length
+            }
+
+            // Must return a list representing the row and column to put a piece
+            // row column
+            // | |
+            compute(board, time) { return [0, 0] }
+        }
+
+        /*
+        * A class for board operations (it is not the board but a set of operations over it)
+        */
+        class Board {
+            constructor() { }
+            // Initializes a board of the given size. A board is a matrix of size*size of characters ' ', 'B', or 'W'
+            init(size) {
+                var board = []
+                for (var i = 0; i < size; i++) {
+                    board[i] = []
+                    for (var j = 0; j < size; j++)
+                        board[i][j] = ' '
+                }
+                var m = Math.floor(size / 2) - 1
+                board[m][m] = 'W'
+                board[m][m + 1] = 'B'
+                board[m + 1][m + 1] = 'W'
+                board[m + 1][m] = 'B'
+                return board
+            }
+            // Deep clone of a board the reduce risk of damaging the real board
+            clone(board) {
+                var size = board.length
+                var b = []
+                for (var i = 0; i < size; i++) {
+                    b[i] = []
+                    for (var j = 0; j < size; j++)
+                        b[i][j] = board[i][j]
+                }
+                return b
+            }
+
+            // Determines if a piece of the 'color' can be set at position 'i', 'j' (row, column, respectively)
+            check(board, color, i, j) {
+                var size = board.length
+                if (board[i][j] != ' ') return false
+                var rcolor = color == 'W' ? 'B' : 'W'
+                //left
+                var k = j - 1
+                while (k >= 0 && board[i][k] == rcolor) k--
+                if (k >= 0 && Math.abs(k - j) > 1 && board[i][k] == color) return true
+                //right
+                k = j + 1
+                while (k < size && board[i][k] == rcolor) k++
+                if (k < size && Math.abs(k - j) > 1 && board[i][k] == color) return true
+                //up
+                k = i - 1
+                while (k >= 0 && board[k][j] == rcolor) k--
+                if (k >= 0 && Math.abs(k - i) > 1 && board[k][j] == color) return true
+                //down
+                k = i + 1
+                while (k < size && board[k][j] == rcolor) k++
+                if (k < size && Math.abs(k - i) > 1 && board[k][j] == color) return true
+                //left-top
+                k = i - 1
+                var l = j - 1
+                while (k >= 0 && l >= 0 && board[k][l] == rcolor) {
+                    k--
+                    l--
+                }
+                if (k >= 0 && l >= 0 && Math.abs(k - i) > 1 && Math.abs(l - j) > 1 && board[k][l] == color) return true
+                //left-bottom
+                k = i + 1
+                l = j - 1
+                while (k < size && l >= 0 && board[k][l] == rcolor) {
+                    k++
+                    l--
+                }
+                if (k < size && l >= 0 && Math.abs(k - i) > 1 && Math.abs(l - j) > 1 && board[k][l] == color) return true
+                //right-top
+                k = i - 1
+                l = j + 1
+                while (k >= 0 && l < size && board[k][l] == rcolor) {
+                    k--
+                    l++
+                }
+                if (k >= 0 && l < size && Math.abs(k - i) > 1 && Math.abs(l - j) > 1 && board[k][l] == color) return true
+                //right-bottom
+                k = i + 1
+                l = j + 1
+                while (k < size && l < size && board[k][l] == rcolor) {
+                    k++
+                    l++
+                }
+                if (k < size && l < size && Math.abs(k - i) > 1 && Math.abs(l - j) > 1 && board[k][l] == color) return true
+                return false
+            }
+
+            // Computes all the valid moves for the given 'color'
+            valid_moves(board, color) {
+                var moves = []
+                var size = board.length
+                for (var i = 0; i < size; i++) {
+                    for (var j = 0; j < size; j++)
+                        if (this.check(board, color, i, j)) moves.push([i, j])
+                }
+                return moves
+            }
+
+            // Determines if a piece of 'color' can be set
+            can_play(board, color) {
+                var size = board.length
+                var i = 0
+                while (i < size) {
+                    var j = 0
+                    while (j < size && !this.check(board, color, i, j)) j++
+                    if (j < size) return true
+                    i++
+                }
+                return false
+            }
+
+            // Computes the new board when a piece of 'color' is set at position 'i', 'j' (row, column respectively)
+            // If it is an invalid movement stops the game and declares the other 'color' as winner
+            move(board, i, j, color) {
+                var white_move = color == 'W'
+                var size = board.length
+                if (board[i][j] != ' ') return false
+                board[i][j] = color
+                var rcolor = color == 'W' ? 'B' : 'W'
+                var flag = false
+                //left
+                var k = j - 1
+                while (k >= 0 && board[i][k] == rcolor) k--
+                if (k >= 0 && Math.abs(k - j) > 1 && board[i][k] == color) {
+                    flag = true
+                    k = j - 1
+                    while (k > 0 && board[i][k] == rcolor) {
+                        board[i][k] = color
+                        k--
+                    }
+                }
+                //right
+                k = j + 1
+                while (k < size && board[i][k] == rcolor) k++
+                if (k < size && Math.abs(k - j) > 1 && board[i][k] == color) {
+                    flag = true
+                    k = j + 1
+                    while (k < size && board[i][k] == rcolor) {
+                        board[i][k] = color
+                        k++
+                    }
+                }
+                //up
+                k = i - 1
+                while (k >= 0 && board[k][j] == rcolor) k--
+                if (k >= 0 && Math.abs(k - i) > 1 && board[k][j] == color) {
+                    flag = true
+                    k = i - 1
+                    while (k >= 0 && board[k][j] == rcolor) {
+                        board[k][j] = color
+                        k--
+                    }
+                }
+                //down
+                k = i + 1
+                while (k < size && board[k][j] == rcolor) k++
+                if (k < size && Math.abs(k - i) > 1 && board[k][j] == color) {
+                    flag = true
+                    k = i + 1
+                    while (k < size && board[k][j] == rcolor) {
+                        board[k][j] = color
+                        k++
+                    }
+                }
+                //left-top
+                k = i - 1
+                l = j - 1
+                while (k >= 0 && l >= 0 && board[k][l] == rcolor) {
+                    k--
+                    l--
+                }
+                if (k >= 0 && l >= 0 && Math.abs(k - i) > 1 && Math.abs(l - j) > 1 && board[k][l] == color) {
+                    flag = true
+                    k = i - 1
+                    l = j - 1
+                    while (k >= 0 && l >= 0 && board[k][l] == rcolor) {
+                        board[k][l] = color
+                        k--
+                        l--
+                    }
+                }
+                //left-bottom
+                var k = i + 1
+                var l = j - 1
+                while (k < size && l >= 0 && board[k][l] == rcolor) {
+                    k++
+                    l--
+                }
+                if (k < size && l >= 0 && Math.abs(k - i) > 1 && Math.abs(l - j) > 1 && board[k][l] == color) {
+                    flag = true
+                    var k = i + 1
+                    var l = j - 1
+                    while (k < size && l >= 0 && board[k][l] == rcolor) {
+                        board[k][l] = color
+                        k++
+                        l--
+                    }
+                }
+                //right-top
+                var k = i - 1
+                var l = j + 1
+                while (k >= 0 && l < size && board[k][l] == rcolor) {
+                    k--
+                    l++
+                }
+                if (k >= 0 && l < size && Math.abs(k - i) > 1 && Math.abs(l - j) > 1 && board[k][l] == color) {
+                    flag = true
+                    var k = i - 1
+                    var l = j + 1
+                    while (k >= 0 && l < size && board[k][l] == rcolor) {
+                        board[k][l] = color
+                        k--
+                        l++
+                    }
+                }
+                //right-bottom
+                var k = i + 1
+                var l = j + 1
+                while (k < size && l < size && board[k][l] == rcolor) {
+                    k++
+                    l++
+                }
+                if (k < size && l < size && Math.abs(k - i) > 1 && Math.abs(l - j) > 1 && board[k][l] == color) {
+                    flag = true
+                    var k = i + 1
+                    var l = j + 1
+                    while (k < size && l < size && board[k][l] == rcolor) {
+                        board[k][l] = color
+                        k++
+                        l++
+                    }
+                }
+                return flag
+            }
+
+            // Computes the winner in terms of number of pieces in the board
+            winner(board, white, black) {
+                var size = board.length
+                var W = 0
+                var B = 0
+                for (var i = 0; i < size; i++)
+                    for (var j = 0; j < size; j++)
+                        if (board[i][j] == 'W') W++
+                        else if (board[i][j] == 'B') B++
+                var msg = ' Pieces count W:' + W + ' B:' + B
+                if (W == B) return 'Draw ' + msg
+                return ((W > B) ? white : black) + msg
+            }
+
+            // Draw the board on the canvas
+            print(board) {
+                var size = board.length
+                // Commands to be run (left as string to show them into the editor)
+                var grid = []
+                for (var i = 0; i < size; i++) {
+                    for (var j = 0; j < size; j++)
+                        grid.push({ "command": "translate", "y": i, "x": j, "commands": [{ "command": "-" }, { "command": board[i][j] }] })
+                }
+
+                var commands = { "r": true, "x": 1.0 / size, "y": 1.0 / size, "command": "fit", "commands": grid }
+                Konekti.client['canvas'].setText(commands)
+            }
+        }
+
+        /*
+        * Player's Code (Must inherit from Agent)
+        * This is an example of a random player agent
+        */
+        class RandomPlayer extends Agent {
+            constructor() {
+                super()
+                this.board = new Board()
+            }
+
+            compute(board, time) {
+                var moves = this.board.valid_moves(board, this.color)
+                var index = Math.floor(moves.length * Math.random())
+                for (var i = 0; i < 50000000; i++) { } // Making it very slow to test time restriction
+                return moves[index]
+            }
+        }
+        class EEAPlayer extends Agent {
+            constructor() {
+                super();
+                this.board = new Board();
+            }
+
+            compute(board, time) {
+                const startTime = performance.now();
+                const depth = 4;
+
+                // Use the Minimax algorithm with alpha-beta pruning to find the best move
+                const bestMove = this.minimax(
+                    board,
+                    this.color,
+                    depth,
+                    -Infinity,
+                    Infinity
+                ).move;
+
+                const endTime = performance.now();
+                const elapsedTime = endTime - startTime;
+                // testing
+                console.log("Elapsed Time:", elapsedTime);
+
+                return bestMove;
+            }
+
+            minimax(board, color, depth, alpha, beta) {
+                const moves = this.board.valid_moves(board, color);
+
+                // Maximum depth or no left moves
+                if (depth === 0 || moves.length === 0) {
+                    return {
+                        score: this.evaluate(board, this.color),
+                        move: null,
+                    };
+                }
+
+                let bestScore = color === this.color ? -Infinity : Infinity;
+                let bestMove = null;
+
+                for (let i = 0; i < moves.length; i++) {
+                    const [row, col] = moves[i];
+                    const newBoard = this.board.clone(board);
+                    this.board.move(newBoard, row, col, color);
+
+                    const nextColor = color === "W" ? "B" : "W";
+                    const result = this.minimax(
+                        newBoard,
+                        nextColor,
+                        depth - 1,
+                        alpha,
+                        beta
+                    );
+
+                    if (color === this.color && result.score > bestScore) {
+                        bestScore = result.score;
+                        bestMove = moves[i];
+                        alpha = Math.max(alpha, bestScore);
+                    } else if (color !== this.color && result.score < bestScore) {
+                        bestScore = result.score;
+                        bestMove = moves[i];
+                        beta = Math.min(beta, bestScore);
+                    }
+
+                    if (beta <= alpha) {
+                        // Beta cutoff (pruning)
+                        break;
+                    }
+                }
+
+                return {
+                    score: bestScore,
+                    move: bestMove,
+                };
+            }
+
+            evaluate(board, color) {
+                // Simple evaluation function that counts the number of pieces for the player
+                // and subtracts the number of pieces for the opponent
+                let playerScore = 0;
+                let opponentScore = 0;
+
+                for (let i = 0; i < board.length; i++) {
+                    for (let j = 0; j < board[i].length; j++) {
+                        if (board[i][j] === color) {
+                            playerScore++;
+                        } else if (board[i][j] !== " ") {
+                            opponentScore++;
+                        }
+                    }
+                }
+
+                return playerScore - opponentScore;
+            }
+        }
+        class CustomPlayer extends Agent {
+            constructor() {
+                super()
+                this.board = new Board()
+                this.n = this.board.length;
+                this.turns = (this.player === 'W' ? 1 : 0);
+                this.POSITION_SCORES =
+                    [[25, 0, 6, 5, 5, 6, 0, 25],
+                    [0, 0, 1, 1, 1, 1, 0, 0],
+                    [6, 1, 4, 3, 3, 4, 1, 6],
+                    [5, 1, 3, 2, 2, 3, 1, 5],
+                    [5, 1, 3, 2, 2, 3, 1, 5],
+                    [6, 1, 4, 3, 3, 4, 1, 6],
+                    [0, 0, 1, 1, 1, 1, 0, 0],
+                    [25, 0, 6, 5, 5, 6, 0, 25]]
+                this.POSITION_SCORES_2 =
+                    [[0, 0, 0, 0, 0, 0, 0, 0],
+                    [0, 0, 2, 2, 2, 2, 0, 0],
+                    [0, 2, 12, 4, 4, 12, 2, 0],
+                    [0, 2, 4, 8, 8, 4, 2, 0],
+                    [0, 2, 4, 8, 8, 4, 2, 0],
+                    [0, 2, 12, 4, 4, 12, 2, 0],
+                    [0, 0, 2, 2, 2, 2, 2, 0],
+                    [0, 0, 0, 0, 0, 0, 0, 0]]
+                this.levelDepth = 0
+                this.numberMatrix = [[0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0]]
+            }
+
+            compute(board, time) {
+                this.turns += 2;
+                return this.alphaBetaMove(board, this.color, this.turns)
+            }
+            alphaBetaMove(board, player, level) {
+                if (this.terminal(board) == true) return []
+                if (player == 'W') {
+                    let bestMove, temp
+                    let value = -Infinity
+                    let moves = this.board.valid_moves(board, 'W')
+                    if (moves.length == 0) {
+                        this.alphaBetaSearch(board, 'B', -Infinity, Infinity, level + 1)
+                    } else {
+                        for (var i = 0; i < moves.length; i++) {
+                            temp = value
+                            board[moves[i][0]][moves[i][1]] = 'W'
+                            value = Math.max(value, this.alphaBetaSearch(board, 'B', -Infinity, Infinity, level + 1))
+                            board[moves[i][0]][moves[i][1]] = ''
+                            if (value > temp) bestMove = moves[i]
+                        }
+                        return bestMove
+                    }
+                } else {
+                    let bestMove, temp
+                    let value = Infinity
+                    let moves = this.board.valid_moves(board, 'B')
+                    if (moves.length == 0) {
+                        this.alphaBetaSearch(board, 'W', -Infinity, Infinity, level + 1)
+                    } else {
+
+                        for (var i = 0; i < moves.length; i++) {
+                            temp = value
+                            board[moves[i][0]][moves[i][1]] = 'B'
+                            value = Math.min(value, this.alphaBetaSearch(board, 'W', -Infinity, Infinity, level + 1))
+                            board[moves[i][0]][moves[i][1]] = ''
+                            if (value < temp) bestMove = moves[i]
+                        }
+                        return bestMove
+                    }
+
+                }
+            }
+
+            alphaBetaSearch(board, player, alpha, beta, level) {
+                let i;
+                //if(this.turns < 5) return this.heuristicValue2(board,player)
+                //if(this.turns < 12 && level === this.turns + 2) return this.heuristicValue2(board,player)
+                //if(this.turns < 13 && level === this.turns + 4 ) return this.heuristicValue4(board,player)
+                if (this.turns > 50 && this.terminal(board)) return this.heuristicValue4(board, player)
+                if (this.terminal(board) === true) return this.heuristicValue(board, player)
+                //if (this.terminal(board) === true) return this.heuristicValue4(board, player)
+
+
+                if (player === 'W') {
+                    let value = -Infinity
+                    let moves = this.board.valid_moves(board, 'W')
+                    if (moves.length == 0) {
+                        return this.alphaBetaSearch(board, 'B', alpha, beta)
+                    } else {
+                        for (i = 0; i < moves.length; i++) {
+                            board[moves[i][0]][moves[i][1]] = 'W'
+                            value = Math.max(value, this.alphaBetaSearch(board, 'B', alpha, beta))
+                            board[moves[i][0]][moves[i][1]] = ''
+                            if (value >= beta) return value
+                            alpha = Math.max(alpha, value)
+                        }
+                        return value
+                    }
+                } else {
+                    let value = Infinity
+                    let moves = this.board.valid_moves(board, 'B')
+                    if (moves.length === 0) {
+                        return this.alphaBetaSearch(board, 'W', alpha, beta)
+                    } else {
+                        for (i = 0; i < moves.length; i++) {
+                            board[moves[i][0]][moves[i][1]] = 'B'
+                            value = Math.min(value, this.alphaBetaSearch(board, 'W', alpha, beta))
+                            board[moves[i][0]][moves[i][1]] = ''
+                            if (value <= alpha) return value
+                            beta = Math.min(beta, value)
+                        }
+                        return value
+                    }
+
+                }
+            }
+
+            // Determines if the state is terminal or not
+            terminal(board) {
+                var check_one = this.board.valid_moves(board, 'W')
+                var check_two = this.board.valid_moves(board, 'B')
+                return ((check_one.length === 0) && (check_two.length === 0))
+            }
+
+            // In case of terminal state returns the value for terminal state
+            heuristicValue(board, player) {
+                this.convert(board)
+                let score = 0
+
+                for (let i = 0; i < 8; i++) {
+                    for (let j = 1; j < 8; j++) {
+                        score += (this.numberMatrix[i][j] * this.POSITION_SCORES[i][j])
+                    }
+                }
+                for (let i = 0; i < 8; i++) {
+                    let row_pieces = [(this.numberMatrix[i][0])];
+                    let col_pieces = [(this.numberMatrix[0][i])];
+                    for (let j = 1; j < 8; j++) {
+                        if (row_pieces[row_pieces.length - 1] * this.numberMatrix[i][j] > 0) {
+                            row_pieces[row_pieces.length - 1] += this.numberMatrix[i][j]
+                        } else {
+                            row_pieces.push(this.numberMatrix[i][j])
+                        }
+                        if (col_pieces[col_pieces.length - 1] * this.numberMatrix[i][j] > 0) {
+                            col_pieces[col_pieces.length - 1] += this.numberMatrix[i][j]
+                        } else {
+                            col_pieces.push(this.numberMatrix[i][j])
+                        }
+                        if (row_pieces.length >= 3) {
+                            for (let j = 1; j < row_pieces.length - 1; j++) {
+                                if (row_pieces[j] != 0) {
+                                    if (row_pieces[j - 1] * row_pieces[j + 1] == 0 && row_pieces[j - 1] + row_pieces[j + 1] != 0) {
+                                        score -= row_pieces[j] * 1;
+                                    }
+                                }
+                            }
+                        }
+                        if (col_pieces.length >= 3) {
+                            for (let j = 1; j < col_pieces.length - 1; j++) {
+                                if (col_pieces[j] !== 0) {
+                                    if (col_pieces[j - 1] * col_pieces[j + 1] === 0 && col_pieces[j - 1] + col_pieces[j + 1] != 0) {
+                                        score -= col_pieces[j] * 1
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                }
+                /*
+        
+                if (this.numberMatrix[0][0] === 0)score -= ((this.numberMatrix[1][0] + this.numberMatrix[0][1] + this.numberMatrix[1][1])*3)
+                if (this.numberMatrix[0][7] === 0)score -= ((this.numberMatrix[1][7] + this.numberMatrix[0][6] + this.numberMatrix[1][6])*3)
+                if (this.numberMatrix[7][0] === 0)score -= ((this.numberMatrix[7][1] + this.numberMatrix[6][0] + this.numberMatrix[6][1])*3)
+                if (this.numberMatrix[7][7] === 0)score -= ((this.numberMatrix[6][7] + this.numberMatrix[7][6] + this.numberMatrix[6][6])*3)
+                
+                 */
+
+
+
+                if (player == 'W') {
+                    var check_one = this.board.valid_moves(board, 'W')
+                    var check_two = this.board.valid_moves(board, 'B')
+                    //return (score + 2*(check_one.length - check_two.length))
+                    return score * -1
+                } else {
+                    var check_one = this.board.valid_moves(board, 'W')
+                    var check_two = this.board.valid_moves(board, 'B')
+                    //return ((score*-1) + 2*(check_one.length - check_two.length))
+                    return score
+                }
+            }
+
+            convert(board) {
+                for (let i = 0; i < board.length; i++) {
+                    for (let j = 0; j < board.length; j++) {
+                        if (board[i][j] == '') this.numberMatrix[i][j] = 0;
+                        if (board[i][j] == 'W') this.numberMatrix[i][j] = 1;
+                        if (board[i][j] == 'B') this.numberMatrix[i][j] = -1;
+                    }
+                }
+            }
+            heuristicValue2(board, player) {
+                if (player == 'W') {
+                    return (this.board.valid_moves(board, 'W').length)
+                } else {
+                    return (this.board.valid_moves(board, 'B').length * -1)
+                }
+
+            }
+            heuristicValue3(board, player) {
+                this.convert(board)
+                let score = 0
+
+                for (let i = 0; i < 8; i++) {
+                    for (let j = 1; j < 8; j++) {
+                        score += (this.numberMatrix[i][j] * this.POSITION_SCORES_2[i][j])
+                    }
+                }
+                let mobility_1 = this.board.valid_moves(board, 'W').length
+                let mobility_2 = this.board.valid_moves(board, 'B').length
+
+                if (player == 'W') {
+                    return (score) + 2 * (mobility_1 - mobility_2)
+                } else {
+                    return ((score * -1)) + 2 * (mobility_1 - mobility_2)
+                }
+            }
+            heuristicValue4(board, player) {
+                var minormax = player == 'W' ? 1 : -1
+                var size = board.length
+                var W = 0
+                var B = 0
+                for (var i = 0; i < size; i++)
+                    for (var j = 0; j < size; j++)
+                        if (board[i][j] == 'W') W++
+                        else if (board[i][j] == 'B') B++
+
+                return (W - B)
+            }
+        }
+        class EEAPlayerPRO extends Agent {
+
+            constructor() {
+                super();
+                this.board = new Board();
+            }
+
+            compute(board, time) {
+                const startTime = performance.now();
+                const depth = 4;
+
+                // Use the Minimax algorithm with alpha-beta pruning to find the best move
+                const bestMove = this.minimax(
+                    board,
+                    this.color,
+                    depth,
+                    -Infinity,
+                    Infinity
+                ).move;
+
+                const endTime = performance.now();
+                const elapsedTime = endTime - startTime;
+                // testing
+                console.log("Elapsed Time:", elapsedTime);
+
+                return bestMove;
+            }
+
+            minimax(board, color, depth, alpha, beta) {
+                const moves = this.board.valid_moves(board, color);
+
+                // Maximum depth or no left moves
+                if (depth === 0 || moves.length === 0) {
+                    return {
+                        score: this.evaluate(board, this.color),
+                        move: null,
+                    };
+                }
+
+                let bestScore = color === this.color ? -Infinity : Infinity;
+                let bestMove = null;
+
+                for (let i = 0; i < moves.length; i++) {
+                    const [row, col] = moves[i];
+                    const newBoard = this.board.clone(board);
+                    this.board.move(newBoard, row, col, color);
+
+                    const nextColor = color === "W" ? "B" : "W";
+                    const result = this.minimax(
+                        newBoard,
+                        nextColor,
+                        depth - 1,
+                        alpha,
+                        beta
+                    );
+
+                    if (color === this.color && result.score > bestScore) {
+                        bestScore = result.score;
+                        bestMove = moves[i];
+                        alpha = Math.max(alpha, bestScore);
+                    } else if (color !== this.color && result.score < bestScore) {
+                        bestScore = result.score;
+                        bestMove = moves[i];
+                        beta = Math.min(beta, bestScore);
+                    }
+
+                    if (beta <= alpha) {
+                        // Beta cutoff (pruning)
+                        break;
+                    }
+                }
+
+                return {
+                    score: bestScore,
+                    move: bestMove,
+                };
+            }
+
+            evaluate(board, color) {
+                const pieceValue = 1; // Weight for each piece on the board
+                const mobilityValue = 0.1; // Weight for each possible move
+                const cornerValue = 3; // Weight for each piece in a corner
+                const edgeValue = 1.5; // Weight for each piece on an edge
+
+                let playerScore = 0;
+                let opponentScore = 0;
+                let playerMoves = 0;
+                let opponentMoves = 0;
+                let playerCorners = 0;
+                let opponentCorners = 0;
+                let playerEdges = 0;
+                let opponentEdges = 0;
+
+                for (let i = 0; i < board.length; i++) {
+                    for (let j = 0; j < board[i].length; j++) {
+                        if (board[i][j] === color) {
+                            playerScore += pieceValue;
+                            playerMoves += this.board.valid_moves(board, color).length;
+
+                            if (
+                                (i === 0 && j === 0) ||
+                                (i === 0 && j === board[i].length - 1) ||
+                                (i === board.length - 1 && j === 0) ||
+                                (i === board.length - 1 && j === board[i].length - 1)
+                            ) {
+                                playerCorners += cornerValue;
+                            } else if (
+                                i === 0 ||
+                                j === 0 ||
+                                i === board.length - 1 ||
+                                j === board[i].length - 1
+                            ) {
+                                playerEdges += edgeValue;
+                            }
+                        } else if (board[i][j] !== " ") {
+                            opponentScore += pieceValue;
+                            opponentMoves += this.board.valid_moves(board, color).length;
+
+                            if (
+                                (i === 0 && j === 0) ||
+                                (i === 0 && j === board[i].length - 1) ||
+                                (i === board.length - 1 && j === 0) ||
+                                (i === board.length - 1 && j === board[i].length - 1)
+                            ) {
+                                opponentCorners += cornerValue;
+                            } else if (
+                                i === 0 ||
+                                j === 0 ||
+                                i === board.length - 1 ||
+                                j === board[i].length - 1
+                            ) {
+                                opponentEdges += edgeValue;
+                            }
+                        }
+                    }
+                }
+
+                const playerScoreTotal =
+                    playerScore +
+                    playerMoves * mobilityValue +
+                    playerCorners +
+                    playerEdges;
+                const opponentScoreTotal =
+                    opponentScore +
+                    opponentMoves * mobilityValue +
+                    opponentCorners +
+                    opponentEdges;
+
+                return playerScoreTotal - opponentScoreTotal;
+            }
+        }
+        class EEAPlayerG extends Agent {
+            constructor() {
+                super();
+                this.board = new Board();
+            }
+
+            compute(board, time) {
+                const startTime = performance.now();
+                const depth = 4;
+
+                // Use the Minimax algorithm with alpha-beta pruning to find the best move
+                const bestMove = this.minimax(
+                    board,
+                    this.color,
+                    depth,
+                    -Infinity,
+                    Infinity
+                ).move;
+
+                const endTime = performance.now();
+                const elapsedTime = endTime - startTime;
+                // testing
+                console.log("Elapsed Time:", elapsedTime);
+
+                return bestMove;
+            }
+
+            minimax(board, color, depth, alpha, beta) {
+                const moves = this.board.valid_moves(board, color);
+
+                // Maximum depth or no left moves
+                if (depth === 0 || moves.length === 0) {
+                    return {
+                        score: this.evaluate(board, this.color),
+                        move: null,
+                    };
+                }
+
+                let bestScore = color === this.color ? -Infinity : Infinity;
+                let bestMove = null;
+
+                for (let i = 0; i < moves.length; i++) {
+                    const [row, col] = moves[i];
+                    const newBoard = this.board.clone(board);
+                    this.board.move(newBoard, row, col, color);
+
+                    const nextColor = color === "W" ? "B" : "W";
+                    const result = this.minimax(
+                        newBoard,
+                        nextColor,
+                        depth - 1,
+                        alpha,
+                        beta
+                    );
+
+                    if (color === this.color && result.score > bestScore) {
+                        bestScore = result.score;
+                        bestMove = moves[i];
+                        alpha = Math.max(alpha, bestScore);
+                    } else if (color !== this.color && result.score < bestScore) {
+                        bestScore = result.score;
+                        bestMove = moves[i];
+                        beta = Math.min(beta, bestScore);
+                    }
+
+                    if (beta <= alpha) {
+                        // Beta cutoff (pruning)
+                        break;
+                    }
+                }
+
+                return {
+                    score: bestScore,
+                    move: bestMove,
+                };
+            }
+
+            evaluate(board, color) {
+                const POSITION_SCORES =
+                    [[25, 0, 6, 5, 5, 6, 0, 25],
+                    [0, 0, 1, 1, 1, 1, 0, 0],
+                    [6, 1, 4, 3, 3, 4, 1, 6],
+                    [5, 1, 3, 2, 2, 3, 1, 5],
+                    [5, 1, 3, 2, 2, 3, 1, 5],
+                    [6, 1, 4, 3, 3, 4, 1, 6],
+                    [0, 0, 1, 1, 1, 1, 0, 0],
+                    [25, 0, 6, 5, 5, 6, 0, 25]]
+                const POSITION_SCORES_2 =
+                    [[0, 0, 0, 0, 0, 0, 0, 0],
+                    [0, 0, 2, 2, 2, 2, 0, 0],
+                    [0, 2, 12, 4, 4, 12, 2, 0],
+                    [0, 2, 4, 8, 8, 4, 2, 0],
+                    [0, 2, 4, 8, 8, 4, 2, 0],
+                    [0, 2, 12, 4, 4, 12, 2, 0],
+                    [0, 0, 2, 2, 2, 2, 2, 0],
+                    [0, 0, 0, 0, 0, 0, 0, 0]]
+                const pieceValue = 1; // Weight for each piece on the board
+                const mobilityValue = 2; // Weight for each possible move
+                const cornerValue = 3; // Weight for each piece in a corner
+                const edgeValue = 1.5; // Weight for each piece on an edge
+
+                let playerScore = 0;
+                let opponentScore = 0;
+                let playerMoves = 0;
+                let opponentMoves = 0;
+                let playerCorners = 0;
+                let opponentCorners = 0;
+                let playerEdges = 0;
+                let opponentEdges = 0;
+
+                for (let i = 0; i < board.length; i++) {
+                    for (let j = 0; j < board[i].length; j++) {
+                        if (board[i][j] === color) {
+                            playerScore += POSITION_SCORES[i][j];
+                            playerMoves += this.board.valid_moves(board, color).length;
+                        } else if (board[i][j] !== " ") {
+                            opponentScore += POSITION_SCORES[i][j];
+                            playerMoves += this.board.valid_moves(board, color).length;
+                        }
+                    }
+                }
+
+                const playerScoreTotal =
+                    playerScore +
+                    playerMoves * mobilityValue
+                //playerCorners +
+                //playerEdges;
+                const opponentScoreTotal =
+                    opponentScore +
+                    opponentMoves * mobilityValue
+                //opponentCorners +
+                //opponentEdges;
+
+                return playerScoreTotal - opponentScoreTotal;
+            }
+        }
+
+
+        /*
+        * Environment (Cannot be modified or any of its attributes accesed directly)
+        */
+        class Environment extends MainClient {
+            constructor() {
+                super()
+                this.board = new Board()
+                this.players = { // Here we are going to set all the players name : instance of class
+                    //'jugador1': new RandomPlayer(),
+                    'jugador1': new EEAPlayerG(),
+                    'jugador2': new CustomPlayer()
+                }
+            }
+
+            // Initializes the game
+            init() {
+                var white = Konekti.vc('W').value // Name of competitor with white pieces
+                var black = Konekti.vc('B').value // Name of competitor with black pieces
+                var time = 1000 * parseInt(Konekti.vc('time').value) // Maximum playing time assigned to a competitor (milliseconds)
+                var size = parseInt(Konekti.vc('size').value) // Size of the reversi board
+
+                this.size = size
+                this.b = this.board.init(size)
+                this.board.print(this.b)
+                var b1 = this.board.clone(this.b)
+                var b2 = this.board.clone(this.b)
+
+                this.white = white
+                this.black = black
+                this.time = { 'W': time, 'B': time }
+                Konekti.vc('W_time').innerHTML = '' + time
+                Konekti.vc('B_time').innerHTML = '' + time
+                this.player = 'W'
+                this.winner = ''
+
+                this.players[white].init('W', b1, time)
+                this.players[black].init('B', b2, time)
+            }
+
+            // Listen to play button
+            play() {
+                var TIME = 10
+                var x = this
+                var board = x.board
+                x.player = 'W'
+                Konekti.vc('log').innerHTML = 'The winner is...'
+
+                x.init()
+                var start = -1
+
+                function clock() {
+                    if (x.winner != '') return
+                    if (start == -1) setTimeout(clock, TIME)
+                    else {
+                        var end = Date.now()
+                        var ellapsed = end - start
+                        var remaining = x.time[x.player] - ellapsed
+                        Konekti.vc(x.player + '_time').innerHTML = remaining
+                        Konekti.vc((x.player == 'W' ? 'B' : 'W') + '_time').innerHTML = x.time[x.player == 'W' ? 'B' : 'W']
+
+                        if (remaining <= 0) x.winner = (x.player == 'W' ? x.black : x.white) + ' since ' + (x.player == 'W' ? x.white : x.black) + 'got time out'
+                        else setTimeout(clock, TIME)
+                    }
+                }
+
+                function compute() {
+                    var w = x.player == 'W'
+                    var id = w ? x.white : x.black
+                    var nid = w ? x.black : x.white
+                    var b = board.clone(x.b)
+                    start = Date.now()
+                    var action = x.players[id].compute(b, x.time[x.player])
+                    var end = Date.now()
+                    var flag = board.move(x.b, action[0], action[1], x.player)
+                    if (!flag) {
+                        x.winner = nid + ' ...Invalid move taken by ' + id + ' on row ' + action[0] + ', column ' + action[1]
+                    } else {
+                        var ellapsed = end - start
+                        x.time[x.player] -= ellapsed
+                        Konekti.vc(x.player + '_time').innerHTML = '' + x.time[x.player]
+                        if (x.time[x.player] <= 0) {
+                            x.winner = nid + ' since ' + id + ' got run of time'
+                        } else {
+                            x.player = w ? 'B' : 'W'
+                            if (!board.can_play(x.b, x.player)) {
+                                x.player = w ? 'W' : 'B'
+                                if (!board.can_play(x.b, x.player)) x.winner = board.winner(x.b, x.white, x.black)
+                            }
+                        }
+                    }
+
+                    board.print(x.b)
+                    start = -1
+                    if (x.winner == '') setTimeout(compute, TIME)
+                    else Konekti.vc('log').innerHTML = 'The winner is ' + x.winner
+                }
+
+                board.print(x.b)
+                setTimeout(clock, 1000)
+                setTimeout(compute, 1000)
+            }
+        }
+
+        // Drawing commands
+        function custom_commands() {
+            return [
+                {
+                    "command": " ", "commands": [
+                        {
+                            "command": "fillStyle",
+                            "color": { "red": 255, "green": 255, "blue": 255, "alpha": 255 }
+                        },
+                        {
+                            "command": "polygon",
+                            "x": [0.2, 0.2, 0.8, 0.8],
+                            "y": [0.2, 0.8, 0.8, 0.2]
+                        }
+
+                    ]
+                },
+                {
+                    "command": "-",
+                    "commands": [
+                        {
+                            "command": "strokeStyle",
+                            "color": { "red": 0, "green": 0, "blue": 0, "alpha": 255 }
+                        },
+                        {
+                            "command": "polyline",
+                            "x": [0, 0, 1, 1, 0],
+                            "y": [0, 1, 1, 0, 0]
+                        }
+                    ]
+                },
+                {
+                    "command": "B",
+                    "commands": [
+                        {
+                            "command": "fillStyle",
+                            "color": { "red": 0, "green": 0, "blue": 0, "alpha": 255 }
+                        },
+                        {
+                            "command": "polygon",
+                            "x": [0.2, 0.2, 0.8, 0.8],
+                            "y": [0.2, 0.8, 0.8, 0.2]
+                        }
+                    ]
+                },
+                {
+                    "command": "W",
+                    "commands": [
+                        {
+                            "command": "fillStyle",
+                            "color": { "red": 255, "green": 255, "blue": 0, "alpha": 255 }
+                        },
+                        {
+                            "command": "polygon",
+                            "x": [0.2, 0.2, 0.8, 0.8],
+                            "y": [0.2, 0.8, 0.8, 0.2]
+                        },
+                    ]
+                }
+            ]
+        }
+
+        // Main function using the Konekti infrastructure
+        function KonektiMain() {
+            var client = new Environment()
+            Konekti.header('title', '', 'Reversi', 3, { 'class': 'w3-black w3-center' })
+            Konekti.raw('log', 'The winner is...')
+            // Connects the video with the HTML component
+            var btn2 = [
+                {
+                    'plugin': 'raw', 'setup': ["time", '', {
+                        'tag': 'input', 'width': '150px', 'class': "w3-bar-item w3-input w3-border w3-round-xlarge",
+                        'placeholder': "&#xf252; Time (secs)", 'style': "margin-top:2px;margin-bottom:2px;font-family: FontAwesome, Arial, Verdana, sans-serif;"
+                    }]
+                },
+                {
+                    'plugin': 'raw', 'setup': ["size", '', {
+                        'tag': 'input', 'width': '150px', 'class': "w3-bar-item w3-input w3-border w3-round-xlarge",
+                        'placeholder': "&#xf00a; Size", 'style': "margin-top:2px;margin-bottom:2px;font-family: FontAwesome, Arial, Verdana, sans-serif;"
+                    }]
+                },
+                {
+                    'plugin': 'raw', 'setup': ["W", '', {
+                        'tag': 'input', 'width': '150px', 'class': "w3-bar-item w3-input w3-border w3-round-xlarge",
+                        'placeholder': "&#xf10c; White", 'style': "margin-top:2px;margin-bottom:2px;font-family: FontAwesome, Arial, Verdana, sans-serif;"
+                    }]
+                },
+                {
+                    'plugin': 'raw', 'setup': ["W_time", '&#xf252; White', {
+                        'width': '150px', 'class': "w3-bar-item w3-input w3-border w3-round-xlarge",
+                        'style': "margin-top:2px;margin-bottom:2px;font-family: FontAwesome, Arial, Verdana, sans-serif;"
+                    }]
+                },
+                {
+                    'plugin': 'raw', 'setup': ["B", '', {
+                        'tag': 'input', 'width': '150px', 'class': "w3-bar-item w3-input w3-border w3-round-xlarge",
+                        'placeholder': "&#xf111; Black", 'style': "margin-top:2px;margin-bottom:2px;font-family: FontAwesome, Arial, Verdana, sans-serif;"
+                    }]
+                },
+                {
+                    'plugin': 'raw', 'setup': ["B_time", '&#xf252; Black', {
+                        'width': '150px', 'class': "w3-bar-item w3-input w3-border w3-round-xlarge",
+                        'style': "margin-top:2px;margin-bottom:2px;font-family: FontAwesome, Arial, Verdana, sans-serif;"
+                    }]
+                },
+                { 'plugin': 'btn', 'setup': ["play", "fa-play", '', null, { 'title': 'Cara', 'class': 'w3-right' }] }
+            ]
+            Konekti.navbar('navbar2', btn2, { 'client': 'client', 'method': 'play' }, { 'class': 'w3-black w3-medium' })
+            // Connecting the canvas to the HTML component
+            var commands = custom_commands()
+            Konekti.canvas('canvas', {}, commands, { 'width': '100%', 'height': 'fit' })
+
+        }
+
+    </script>
+
+</body>
+
+</html>
