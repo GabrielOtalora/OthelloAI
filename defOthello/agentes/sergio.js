@@ -2,6 +2,8 @@ class EEAPlayer extends Agent {
     constructor() {
       super();
       this.board = new Board();
+      this.lasScoreW =0;
+      this.lasScoreB =0;
     }
 
     compute(board, time) {

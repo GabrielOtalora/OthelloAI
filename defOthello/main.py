@@ -25,9 +25,9 @@ empates = 0
 
 for i in range(1, 3):
     # Duración
-    driver.find_element(By.XPATH, '//*[@id="time"]').send_keys("20")
+    driver.find_element(By.XPATH, '//*[@id="time"]').send_keys("60")
     # Tamaño
-    driver.find_element(By.XPATH, '//*[@id="size"]').send_keys("9")
+    driver.find_element(By.XPATH, '//*[@id="size"]').send_keys("11")
     # Jugadores
     driver.find_element(By.XPATH, '//*[@id="W"]').send_keys("jugador1")
     driver.find_element(By.XPATH, '//*[@id="B"]').send_keys("jugador2")

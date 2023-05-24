@@ -1,9 +1,9 @@
-class EEAPlayerG extends Agent {
+class EEAPlayerG2 extends Agent {
     constructor() {
         super();
         this.board = new Board();
         this.n = this.board.length;
-        console.log("Tamaño: ",this.n);
+        console.log("Tamaño: ", this.n);
     }
 
     compute(board, time) {
@@ -93,7 +93,7 @@ class EEAPlayerG extends Agent {
 
         let playerScore = 0;
         let opponentScore = 0;
-        let playerMoves = 0; 
+        let playerMoves = 0;
         let opponentMoves = 0;
 
 
@@ -116,6 +116,81 @@ class EEAPlayerG extends Agent {
         const opponentScoreTotal =
             opponentScore +
             opponentMoves * mobilityValue
+
+        return playerScoreTotal - opponentScoreTotal;
+    }
+    evaluate2(board, color) {
+        const POSITION_SCORES =
+            [[25, 0, 6, 5, 5, 6, 0, 25],
+            [0, 0, 1, 1, 1, 1, 0, 0],
+            [6, 1, 4, 3, 3, 4, 1, 6],
+            [5, 1, 3, 2, 2, 3, 1, 5],
+            [5, 1, 3, 2, 2, 3, 1, 5],
+            [6, 1, 4, 3, 3, 4, 1, 6],
+            [0, 0, 1, 1, 1, 1, 0, 0],
+            [25, 0, 6, 5, 5, 6, 0, 25]]
+
+
+        const mobilityValue = 2; // Weight for each possible move
+
+        let playerScore = 0;
+        let opponentScore = 0;
+        let playerMoves = 0;
+        let opponentMoves = 0;
+        //Encontrar casillas volteadas
+        const TAMANO = board.length;
+        const arr = new Array(TAMANO).fill().map(_ => new Array(TAMANO).fill(0));
+        //1 = Blancas
+        //2 = Negras
+        let ACTPLAYER = color;
+        let ACTOP = "";
+        if (color == "B") {
+            ACTOP = "W";
+        } else {
+            ACTOP = "B";
+        }
+        const directions = [
+            [0, 1], // right
+            [0, -1], // left
+            [1, 0], // down
+            [-1, 0], // up
+            [1, 1], // diagonal down-right
+            [1, -1], // diagonal down-left
+            [-1, 1], // diagonal up-right
+            [-1, -1], // diagonal up-left
+        ];
+        arr[lastRow][lastCol] = ACTPLAYER;
+        console.log(ACTPLAYER);
+
+
+        for (let i = 0; i < directions.length; i++) {
+            let temp = [];
+            const [deltaRow, deltaCol] = directions[i];
+            let currentRow = lastRow + deltaRow;
+            let currentCol = lastCol + deltaCol;
+            //console.log(deltaRow)
+            //let foundOpponentPiece = false;
+            //console.log(arr[currentRow,currentCol],currentRow,currentCol);
+            if (currentRow < TAMANO && currentRow > 0 && currentCol < TAMANO && currentCol > 0) {
+                while (arr[currentRow][currentCol] == ACTOP) {
+                    temp.push([currentRow, currentCol]);
+                    currentRow = currentRow + deltaRow;
+                    currentCol = currentCol + deltaCol;
+                    if (arr[currentRow][currentCol] == ACTPLAYER && currentRow < TAMANO && currentRow >= 0 && currentCol < TAMANO && currentCol >= 0) {
+                        fliped.push(temp);                                                
+                    }
+                }
+            }
+        }
+        console.log(arr);
+        console.log(fliped);
+    const playerScoreTotal =
+        playerScore +
+        playerMoves * mobilityValue
+
+    const opponentScoreTotal =
+        opponentScore +
+        opponentMoves * mobilityValue
 
         return playerScoreTotal - opponentScoreTotal;
     }

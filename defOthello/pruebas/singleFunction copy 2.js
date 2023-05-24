@@ -1,10 +1,9 @@
 const TAMANO = 8;
-function crearAnillos() {
-    
+
+function crearMCompleta(){
     const NUMANILLOS = TAMANO / 2;
     modulo = TAMANO % 8;
     console.log(modulo);
-
     const anillos = new Array(NUMANILLOS).fill().map(_ => new Array(NUMANILLOS).fill(0));
     let caso1 = false;
     if (TAMANO % 4 == 0) {
@@ -39,17 +38,8 @@ function crearAnillos() {
                 anillos[i][1] = 0;
                 anillos[i][2] = numPartesAnillo + 2;
             }
-
         }
     }
-    return anillos;
-}
-nanillos = crearAnillos()
-console.log(nanillos)
-
-function crearCuartoMatriz(nanillos) {
-    let anillos = nanillos;
-    const NUMANILLOS = TAMANO / 2;
     //Formar una cuarta parte de la matriz
     const cuarto = new Array(NUMANILLOS).fill().map(_ => new Array(NUMANILLOS).fill(0));
     for (let i = 0; i < NUMANILLOS; i++) {
@@ -58,23 +48,17 @@ function crearCuartoMatriz(nanillos) {
             cuarto[j][i] = anillos[NUMANILLOS - j - 1][i - j];
         }
     }
-    return cuarto;
-
-}
-ncuarto = crearCuartoMatriz(nanillos);
-console.log(ncuarto)
-
-function crearMCompleta(ncuarto){
     const completa = new Array(TAMANO).fill().map(_ => new Array(TAMANO).fill(0));
-    console.log(completa)
-    const NUMANILLOS = TAMANO / 2;
     for (let i = 0; i < NUMANILLOS; i++) {
-        reves =ncuarto[i].slice().reverse() 
-        fila =(ncuarto[i]).concat(reves);
+        reves =cuarto[i].slice().reverse() 
+        fila =(cuarto[i]).concat(reves);
         completa[i]= fila//ncuarto[i].reverse().concat(ncuarto[i]);
         completa[TAMANO -i-1]= fila
     }
     return completa;
 }
-mcompleta = crearMCompleta(ncuarto);
-console.log(mcompleta);
+const start= performance.now();
+mcompleta = crearMCompleta();
+const end= performance.now();
+let tiempo = end-start;
+console.log(mcompleta, "Tiempo: ", tiempo);
