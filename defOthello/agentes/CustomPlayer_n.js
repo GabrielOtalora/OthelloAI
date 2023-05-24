@@ -447,7 +447,7 @@ class CustomPlayer extends Agent{
         for(let i = 0;i < this.size;i++){
             for(let j = 0; j<this.size;j++){
                 if(board[i][j]==player){
-                    count += board[i][j]
+                    count ++;
                 }
             }
         }
